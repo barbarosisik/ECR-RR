@@ -10,7 +10,7 @@ This project implements an **inference-time reranking approach** that:
 - Combines subjective scores with NDCG@K for recommendation alignment
 - Selects the best candidate through composite reward optimization
 
-![Selection Pipeline](images/selection_pipeline.png)
+![Selection Pipeline](docs/images/selection_pipeline.png)
 *Figure 1: High-level selection pipeline. Blue boxes denote ECR's existing flow (dialogue/knowledge → generator); green boxes denote our reranking modules (candidates, critic scoring, composite reward). The generator proposes multiple candidates; a critic scores each candidate per subjective dimension and with NDCG; the composite reward selects the highest-reward candidate.*
 
 
@@ -33,10 +33,10 @@ ECR-RR/
 ├── docs/                             # Documentation and thesis
 │   ├── DRAFT_THESIS_REPORT.tex      # Complete thesis document (963 lines)
 │   ├── README.md                     # This documentation file
-│   └── references.bib               # Bibliography references
-├── images/                           # Project figures and diagrams
-│   ├── selection_pipeline.png       # High-level selection pipeline diagram
-│   └── system_architecture.png      # System architecture with clustered components
+│   ├── references.bib               # Bibliography references
+│   └── images/                       # Project figures and diagrams
+│       ├── selection_pipeline.png   # High-level selection pipeline diagram
+│       └── system_architecture.png  # System architecture with clustered components
 ├── evaluation/                       # Model evaluation scripts
 │   ├── ecr_eval_runner.py            # ECR evaluation runner
 │   ├── evaluate_ecr_comprehensive.py # Comprehensive ECR evaluation
@@ -90,20 +90,14 @@ ECR-RR/
 
 ### Prerequisites
 
-1. **Environment Setup**:
-   ```bash
-   conda create -n ecrhmas_fixed python=3.10
-   conda activate /path/to/conda_envs/ecrhmas_fixed
-   ```
-
-2. **Install Dependencies**:
+1. **Install Dependencies**:
    ```bash
    pip install torch transformers datasets accelerate
    pip install scikit-learn matplotlib seaborn pandas
    pip install rouge-score bert-score peft
    ```
 
-3. **Data Preparation**:
+2. **Data Preparation**:
    - ReDial dataset should be processed and available
    - Scored datasets for critic training should be prepared
    - Knowledge graphs (DBpedia) should be accessible
@@ -113,7 +107,7 @@ ECR-RR/
 #### 1. Train the RoBERTa Critic
 ```bash
 
-# Set environment variables
+#env variables
 export HF_HOME=/path/to/.cache/huggingface
 export TRANSFORMERS_CACHE=$HF_HOME
 export HF_HUB_OFFLINE=1
@@ -147,7 +141,7 @@ export CUDA_VISIBLE_DEVICES=0
 export CUDA_DEVICE_ORDER=PCI_BUS_ID
 export TOKENIZERS_PARALLELISM=false
 
-# Train ECR with enhanced critic
+#training ECR with enhanced critic
 python training/train_ecr_with_enhanced_critic.py \
     --data_path /your/path/to/data/redial/train_data_processed_merge.jsonl \
     --output_dir ecr_enhanced_critic_output \
@@ -164,11 +158,11 @@ python training/train_ecr_with_enhanced_critic.py \
 #### 3. Score Response Datasets (Optional)
 ```bash
 
-# Set environment variables
+#setting environment variables
 export HF_HOME="/path/to/cache/huggingface"
 export TRANSFORMERS_CACHE="/path/to/cache/transformers"
 
-# Score responses with Llama2 (ultra-fast with 4-bit quantization)
+#scoring responses with Llama2 (ultra-fast with 4-bit quantization)
 python -u scoring/llama2_score_responses_ultra_fast.py \
     --input /your/path/to/data/redial_gen/train_scorer_1_3_part_1.jsonl \
     --output llama2_scored_ultra_fast_merged_1_3_part_1.jsonl
@@ -209,7 +203,7 @@ python evaluation/evaluate_ecr_comprehensive.py \
 
 ## Key Components
 
-![System Architecture](images/system_architecture.png)
+![System Architecture](docs/images/system_architecture.png)
 *Figure 2: System architecture with clustered components. Light blue cluster (ECR framework): Dialogue history D, knowledge source (DBpedia entities), knowledge fields (Related Entities, KG Triples), prompt constructor (fold D, add fields, merge), generator LLM, and responses. Light green cluster (Added reranking methods): critic, composite reward + argmax, and final responses.*
 
 ### Inference-Time Reranking System
