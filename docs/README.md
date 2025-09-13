@@ -1,211 +1,344 @@
-# Enhanced Conversational Recommendation (ECR) with Dual-Model Critic
+# ECR-RR: Empathetic Conversational Recommender with Critic-based Reranking
 
-This repository contains the complete implementation of an Enhanced Conversational Recommendation system with a dual-model critic for response quality assessment and reranking.
+This project contains the complete implementation of an **inference-time reranking system** for empathetic conversational recommendation (ECR: https://github.com/zxd-octopus/ECR), featuring a RoBERTa-based critic for response quality assessment and NDCG-balanced evaluation.
 
-## 🎯 Project Overview
+## Project Overview
 
-This project implements a sophisticated conversational recommendation system that:
-- Generates movie recommendations through natural conversation
-- Uses a dual-model critic (RoBERTa + LLM) for response quality assessment
-- Implements reinforcement learning with policy optimization
-- Provides comprehensive evaluation metrics and analysis
+This project implements an **inference-time reranking approach** that:
+- Generates multiple candidate responses using Llama2-7B-Chat
+- Uses a trained RoBERTa critic to score responses on five subjective dimensions
+- Combines subjective scores with NDCG@K for recommendation alignment
+- Selects the best candidate through composite reward optimization
 
-## 📁 Repository Structure
+
+## Repository Structure
 
 ```
-ECR-main/
-├── src_emo/                          # Main source code
-│   ├── training/                     # Training scripts
-│   ├── evaluation/                   # Evaluation scripts
-│   ├── scoring/                      # Response scoring scripts
-│   ├── knowledge/                    # Knowledge retrieval modules
-│   ├── generation/                   # Response generation modules
-│   ├── recommend/                    # Recommendation modules
-│   ├── rl/                          # Reinforcement learning components
-│   └── data/                        # Data processing utilities
-├── slurm_scripts/                    # SLURM job scripts
-├── scripts/                         # Analysis and utility scripts
-├── plan_progress_md_files/          # Documentation and thesis files
-└── results/                         # Evaluation results (generated)
+ECR-RR/
+├── configs/                          # Configuration and data files
+│   ├── config.py                     # Main configuration settings
+│   ├── item_ids.json                 # Movie item ID mappings
+│   ├── movie_reviews_processed_train.json  # Processed training reviews
+│   └── movie_reviews_processed_valid.json  # Processed validation reviews
+├── data_processing/                  # Data preprocessing and scoring
+│   ├── convert_and_score_full_dataset.py  # Convert and score datasets with LLMs
+│   ├── merge.py                      # Merge multiple dataset files
+│   ├── merge_rec.py                  # Merge recommendation data
+│   ├── process.py                    # General data processing
+│   ├── process_empthetic.py          # Process empathetic dialogue data
+│   └── process_mask.py               # Process masked data
+├── docs/                             # Documentation and thesis
+│   ├── DRAFT_THESIS_REPORT.tex      # Complete thesis document (963 lines)
+│   ├── README.md                     # This documentation file
+│   └── references.bib               # Bibliography references
+├── evaluation/                       # Model evaluation scripts
+│   ├── ecr_eval_runner.py            # ECR evaluation runner
+│   ├── evaluate_ecr_comprehensive.py # Comprehensive ECR evaluation
+│   ├── evaluate_ecr_proper.py        # Main ECR evaluation (AUC, Recall, NDCG)
+│   ├── evaluate_rl_ecr_proper.py     # RL-enhanced ECR evaluation
+│   ├── evaluate_rl_enhanced.py       # Enhanced RL evaluation
+│   ├── evaluate_trained_model.py     # Trained model evaluation
+│   └── llm_subjective_evaluation.py # LLM-as-judge subjective evaluation
+├── scoring/                          # Response quality scoring
+│   ├── dialogpt_large_score_responses_ultra_fast.py  # DialoGPT scoring
+│   ├── llama2_score_responses_ultra_fast.py          # Llama2 scoring
+│   └── mistral7b_score_responses_ultra_fast.py       # Mistral scoring
+├── src/                              # Core implementation modules
+│   ├── co_appear.py                  # Co-occurrence analysis
+│   ├── dataset_dbpedia.py            # DBpedia dataset handling
+│   ├── dataset_emp.py                # Empathetic dataset processing
+│   ├── dataset_pre.py                # Preference dataset processing
+│   ├── dataset_rec.py                # Recommendation dataset processing
+│   ├── dialogue_policy.py            # Dialogue policy implementation
+│   ├── enhanced_critic.py            # Enhanced critic agent (RoBERTa-based)
+│   ├── enhanced_critic_with_trained_model.py      # Critic with trained model
+│   ├── enhanced_critic_with_trained_model_v2.py   # Critic v2 with trained model
+│   ├── evaluate_conv.py              # Conversation evaluation
+│   ├── evaluate_ecr_results.py       # ECR results evaluation
+│   ├── evaluate_enhanced_ecr.py      # Enhanced ECR evaluation
+│   ├── evaluate_rec.py               # Recommendation evaluation
+│   ├── kg_loader.py                  # Knowledge graph loader
+│   ├── knowledge_prompt.py           # Knowledge prompt generation
+│   ├── knowledge_reranker.py         # Knowledge-based reranking
+│   ├── knowledge_retriever.py        # Knowledge retrieval system
+│   ├── mappo_trainer.py              # MAPPO training implementation
+│   ├── mixtral_subjective_evaluation.py # Mixtral subjective evaluation
+│   ├── model_gpt2.py                 # GPT-2 model implementation
+│   ├── model_prompt.py               # Model prompting utilities
+│   ├── ppo_trainer.py                # PPO training implementation
+│   ├── reranker.py                   # Knowledge-aware reranker
+│   └── utils.py                      # General utility functions
+├── training/                         # Model training scripts
+│   ├── critic_supervised_dataset_v2.py    # Critic supervised dataset v2
+│   ├── infer_emp.py                  # Empathetic inference
+│   ├── train_ecr_with_enhanced_critic.py  # ECR training with enhanced critic
+│   ├── train_emp.py                  # Empathetic model training
+│   ├── train_pre.py                  # Preference model training
+│   ├── train_rec.py                  # Recommendation model training
+│   └── train_roberta_critic_supervised_v2.py # RoBERTa critic training v2
+└── utils/                            # Additional utilities
+    └── extract_examples_md.py        # Extract examples to markdown
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
 1. **Environment Setup**:
    ```bash
    conda create -n ecrhmas_fixed python=3.10
-   conda activate ecrhmas_fixed
+   conda activate /path/to/conda_envs/ecrhmas_fixed
    ```
 
 2. **Install Dependencies**:
    ```bash
    pip install torch transformers datasets accelerate
    pip install scikit-learn matplotlib seaborn pandas
-   pip install rouge-score bert-score
+   pip install rouge-score bert-score peft
    ```
 
 3. **Data Preparation**:
-   - Download ReDial dataset
-   - Process and prepare training data
-   - Generate movie review embeddings
+   - ReDial dataset should be processed and available
+   - Scored datasets for critic training should be prepared
+   - Knowledge graphs (DBpedia) should be accessible
 
-### 🏗️ Training Pipeline
+### Training Pipeline
 
-#### 1. Train the Dual-Model Critic
+#### 1. Train the RoBERTa Critic
 ```bash
-# Submit SLURM job for critic training
-sbatch slurm_scripts/train_critic_dual_model.slurm
+
+# Set environment variables
+export HF_HOME=/path/to/.cache/huggingface
+export TRANSFORMERS_CACHE=$HF_HOME
+export HF_HUB_OFFLINE=1
+
+# Train the critic
+python -u training/train_roberta_critic_supervised_v2.py \
+    --train_data /your/path/to/data/scored_datasets/critic_train_dual_model.jsonl \
+    --val_data /your/path/to/data/scored_datasets/critic_val_dual_model.jsonl \
+    --test_data /your/path/to/data/scored_datasets/critic_full_dual_model.jsonl \
+    --output_dir critic_pretrained_dual_model \
+    --model_name roberta-base \
+    --num_epochs 3 \
+    --batch_size 16 \
+    --learning_rate 2e-5 \
+    --max_length 256 \
+    --seed 42
 ```
+
+This trains a multi-head RoBERTa regressor on merged Llama2+Mistral judgments to predict five subjective dimensions:
+- Empathy
+- Emotional Persuasiveness  
+- Logic Persuasiveness
+- Informativeness
+- Lifelikeness
 
 #### 2. Train ECR with Enhanced Critic
 ```bash
-# Submit SLURM job for ECR training
-sbatch slurm_scripts/train_ecr_with_enhanced_critic.slurm
+
+# Set environment variables
+export CUDA_VISIBLE_DEVICES=0
+export CUDA_DEVICE_ORDER=PCI_BUS_ID
+export TOKENIZERS_PARALLELISM=false
+
+# Train ECR with enhanced critic
+python training/train_ecr_with_enhanced_critic.py \
+    --data_path /your/path/to/data/redial/train_data_processed_merge.jsonl \
+    --output_dir ecr_enhanced_critic_output \
+    --policy_model microsoft/DialoGPT-small \
+    --critic_model roberta-base \
+    --num_epochs 5 \
+    --batch_size 1 \
+    --learning_rate 1e-5 \
+    --max_length 512 \
+    --save_steps 50 \
+    --device cpu
 ```
 
-#### 3. Train RL Policy
+#### 3. Score Response Datasets (Optional)
 ```bash
-# Submit SLURM job for RL training
-sbatch slurm_scripts/train_llama2_rl_with_policy.slurm
+
+# Set environment variables
+export HF_HOME="/path/to/cache/huggingface"
+export TRANSFORMERS_CACHE="/path/to/cache/transformers"
+
+# Score responses with Llama2 (ultra-fast with 4-bit quantization)
+python -u scoring/llama2_score_responses_ultra_fast.py \
+    --input /your/path/to/data/redial_gen/train_scorer_1_3_part_1.jsonl \
+    --output llama2_scored_ultra_fast_merged_1_3_part_1.jsonl
 ```
 
-### 📊 Evaluation Pipeline
+### Evaluation Pipeline
 
-#### 1. Evaluate ECR Performance
+#### 1. Evaluate ECR with Reranking
 ```bash
-# Submit evaluation job
-sbatch slurm_scripts/evaluate_ecr_proper.slurm
+
+# Set environment variables
+export PATH="/path/to/conda_envs/ecrhmas_fixed/bin:$PATH"
+
+# Run ECR proper evaluation
+python evaluation/evaluate_ecr_proper.py \
+    --base_model /path/to/llama2_chat \
+    --lora_model /path/to/llama2_finetuned_movie_lora_cpu \
+    --test_file /your/path/to/data/redial/test_data_processed.jsonl \
+    --num_samples 100 \
+    --output_file results/ecr_evaluation_proper.json
 ```
 
-#### 2. Evaluate RL-Enhanced ECR
+This evaluates the system using:
+- **Internal metrics**: Critic scores + NDCG@K
+- **External validation**: LLM-as-judge protocol
+- **Recommendation metrics**: AUC, Recall@K, NDCG@K
+
+#### 2. Run Comprehensive Evaluation
 ```bash
-# Submit RL evaluation job
-sbatch slurm_scripts/evaluate_rl_ecr_proper.slurm
+
+# Run comprehensive evaluation
+python evaluation/evaluate_ecr_comprehensive.py \
+    --base_model /path/to/llama2_chat \
+    --critic_model critic_pretrained_dual_model/critic_final.pth \
+    --test_file /your/path/to/data/redial/test_data_processed.jsonl \
+    --output_file results/comprehensive_eval.json
 ```
 
-#### 3. Score Responses with LLMs
-```bash
-# Score with Llama2
-sbatch slurm_scripts/score_ultra_fast_merged_1_3.slurm
-```
+## Key Components
 
-## 🔧 Key Components
+### Inference-Time Reranking System
+- **Generator**: Llama2-7B-Chat produces N candidates (N=8 or 16)
+- **Critic**: RoBERTa-based multi-head regressor scores 5 dimensions
+- **NDCG@K**: Computes recommendation alignment separately
+- **Composite Reward**: Weighted combination of subjective + alignment scores
+- **Selection**: Argmax over composite rewards
 
-### Dual-Model Critic
-- **RoBERTa Component**: Fast, accurate response quality assessment
-- **LLM Component**: Comprehensive evaluation with reasoning
-- **Ensemble Scoring**: Combines both models for robust evaluation
+### Knowledge-Augmented Prompting
+- **Related Entities**: Extracted from IMDb reviews
+- **KG Triples**: Concise DBpedia facts
+- **Toggle Support**: Can include/exclude knowledge fields
 
-### Enhanced ECR System
-- **Knowledge Retrieval**: Contextual movie information
-- **Response Generation**: Natural conversation flow
-- **Quality Assessment**: Real-time response evaluation
-- **Reranking**: Optimizes recommendation quality
+### Dual-View Evaluation
+- **Internal**: Critic scores + NDCG metrics
+- **External**: LLM-as-judge protocol (Llama2/Mistral)
+- **Qualitative**: Side-by-side response comparisons
 
-### Reinforcement Learning
-- **Policy Optimization**: Improves response generation
-- **Reward Shaping**: Balances multiple objectives
-- **Experience Replay**: Efficient learning from interactions
-
-## 📈 Results and Evaluation
+## Results and Evaluation
 
 The system achieves:
-- **High-quality recommendations** with contextual relevance
-- **Natural conversation flow** with appropriate responses
-- **Robust evaluation** through dual-model critic assessment
-- **Improved performance** through RL optimization
+- **+0.20 to +0.28** improvement in composite subjective reward
+- **85-96%** of cases improved through reranking
+- **NDCG@50 ≈ 0.26** maintained (recommendation alignment preserved)
+- **Knowledge prompts** yield larger gains at comparable alignment
 
 ### Key Metrics
-- **BLEU Score**: Measures response fluency
-- **ROUGE Score**: Evaluates content relevance
-- **BERTScore**: Assesses semantic similarity
-- **Human Evaluation**: Subjective quality assessment
+- **Subjective Dimensions**: Empathy, Persuasiveness, Logic, Informativeness, Lifelikeness
+- **Recommendation Alignment**: NDCG@K, AUC, Recall@K
+- **Composite Reward**: Weighted combination of all dimensions
 
-## 🛠️ Configuration
+## Configuration
 
 ### Environment Variables
 ```bash
 export CUDA_VISIBLE_DEVICES=0
-export TRANSFORMERS_CACHE=/path/to/cache
-export HF_HOME=/path/to/huggingface
+export TRANSFORMERS_CACHE=/path/to/.cache/huggingface
+export HF_HOME=/path/to/.cache/huggingface
+export HF_HUB_OFFLINE=1  #offline training
 ```
 
 ### Model Configuration
-- **Base Model**: Llama2-7B-Chat
-- **Critic Model**: RoBERTa-base + Llama2-7B-Chat
-- **Training Data**: ReDial + Movie Reviews
-- **Evaluation Data**: Test set with human annotations
+- **Base Generator**: Llama2-7B-Chat
+- **Critic Model**: RoBERTa-base with multi-head regression
+- **Training Data**: Merged Llama2+Mistral judgments (16,716 samples)
+- **Evaluation Data**: ReDial test set
 
-## 📝 Usage Examples
+### Default Hyperparameters
+- **Candidates**: N ∈ {8, 16}
+- **Length bounds**: 48/16 or 80/32 tokens
+- **Temperature**: 0.7, Top-p: 0.9
+- **Critic training**: 10 epochs, batch size 8, lr 3e-5
+- **Reward weights**: α_Emp≈0.25, α_NDCG≈0.25, α_Per≈0.15, α_Log≈0.15, α_Inf≈0.10, α_Life≈0.10
 
-### Training a New Critic
+## Usage Examples
+
+### Training the Critic
 ```python
-from src_emo.train_critic_dual_model import train_critic
+from training.train_roberta_critic_supervised_v2 import CriticTrainConfig, train_critic
 
-# Train dual-model critic
-train_critic(
-    train_data_path="data/train.jsonl",
-    model_save_path="models/critic_dual.pth",
+#configuring training
+config = CriticTrainConfig(
+    data_dir="/your/path/to/scored_datasets",
+    model_name="roberta-base",
+    batch_size=8,
     epochs=10,
-    batch_size=32
+    lr=3e-5
 )
+
+#train critic
+train_critic(config)
 ```
 
-### Evaluating Responses
+### Running Inference-Time Reranking
 ```python
-from src_emo.evaluation.evaluate_ecr_proper import evaluate_ecr
+from src.enhanced_critic import EnhancedCritic
+from src.reranker import InferenceReranker
 
-# Evaluate ECR performance
-results = evaluate_ecr(
-    model_path="models/ecr_enhanced.pth",
-    test_data_path="data/test.jsonl",
+#loading trained critic
+critic = EnhancedCritic.load_from_checkpoint("critic_roberta_best_v2.pth")
+
+#initializing reranker
+reranker = InferenceReranker(
+    generator_model="llama2-7b-chat",
+    critic_model=critic,
+    num_candidates=16,
+    knowledge_prompts=True
+)
+
+#generating and select best response
+best_response = reranker.generate_and_select(context, user_preferences)
+```
+
+### Evaluating the System
+```python
+from evaluation.evaluate_ecr_proper import evaluate_ecr_system
+
+#running comprehensive evaluation
+results = evaluate_ecr_system(
+    base_model_path="/path/to/llama2-7b-chat",
+    critic_model_path="/path/to/critic.pth",
+    test_data_path="/your/path/to/test.jsonl",
     output_path="results/evaluation.json"
 )
 ```
 
-## 🔬 Research and Thesis
+## Research and Thesis
 
-This project is part of a comprehensive research study on conversational recommendation systems. The complete thesis documentation is available in `plan_progress_md_files/`.
+This project implements the research described in the complete thesis document (`docs/DRAFT_THESIS_REPORT.tex`).
 
 ### Key Contributions
-1. **Dual-Model Critic Architecture**: Novel approach to response quality assessment
-2. **Enhanced ECR System**: Improved conversational recommendation pipeline
-3. **RL Integration**: Policy optimization for better response generation
-4. **Comprehensive Evaluation**: Multi-metric assessment framework
+1. **Inference-Time Reranking**: Deployable alternative to training-time optimization
+2. **Composite Reward Design**: Explicit balance of subjective quality + recommendation alignment
+3. **Dual-LLM Supervision**: Merged Llama2+Mistral judgments for critic training
+4. **Knowledge-Augmented Prompting**: DBpedia triples + review entities for specificity
 
-## 📚 References
+### Research Questions Answered
+- **RQ1**: Does reranking improve subjective response quality? ✅ Yes
+- **RQ2**: Does NDCG term preserve recommendation alignment? ✅ Yes  
+- **RQ3**: How do design choices affect reranking gains? ✅ Analyzed
 
-- ReDial Dataset: Conversational Recommendation Dataset
-- Llama2: Large Language Model for Generation
-- RoBERTa: Robust BERT for Classification
-- PPO: Proximal Policy Optimization Algorithm
+## References
 
-## 🤝 Contributing
+- **ReDial Dataset**: Conversational Recommendation Dataset
+- **Llama2**: Meta's Large Language Model
+- **RoBERTa**: Robust BERT for Classification
+- **ECR Framework**: Empathetic Conversational Recommender
+- **NDCG**: Normalized Discounted Cumulative Gain
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🆘 Support
+## Acknowledgments
 
-For questions or issues:
-1. Check the documentation in `plan_progress_md_files/`
-2. Review the evaluation results in `results/`
-3. Open an issue on GitHub
-
-## 🎉 Acknowledgments
-
-- ReDial dataset creators
-- Hugging Face for model implementations
-- The research community for foundational work
+Our code is developed based on ECR: https://github.com/zxd-octopus/ECR. Any scientific publications that use our codes or dataset should cite our paper as the reference.
 
 ---
 
-**Note**: This repository contains all necessary code and documentation to reproduce the research results. Large model files and generated data are excluded via `.gitignore` and should be trained/generated locally following the provided instructions.
+**Note**: This repository contains all necessary code and documentation to reproduce the research results. The approach focuses on **inference-time reranking**, providing a practical and deployable solution for improving empathetic conversational recommendations.
