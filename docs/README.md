@@ -10,6 +10,9 @@ This project implements an **inference-time reranking approach** that:
 - Combines subjective scores with NDCG@K for recommendation alignment
 - Selects the best candidate through composite reward optimization
 
+![Selection Pipeline](images/selection_pipeline.png)
+*Figure 1: High-level selection pipeline. Blue boxes denote ECR's existing flow (dialogue/knowledge → generator); green boxes denote our reranking modules (candidates, critic scoring, composite reward). The generator proposes multiple candidates; a critic scores each candidate per subjective dimension and with NDCG; the composite reward selects the highest-reward candidate.*
+
 
 ## Repository Structure
 
@@ -31,6 +34,9 @@ ECR-RR/
 │   ├── DRAFT_THESIS_REPORT.tex      # Complete thesis document (963 lines)
 │   ├── README.md                     # This documentation file
 │   └── references.bib               # Bibliography references
+├── images/                           # Project figures and diagrams
+│   ├── selection_pipeline.png       # High-level selection pipeline diagram
+│   └── system_architecture.png      # System architecture with clustered components
 ├── evaluation/                       # Model evaluation scripts
 │   ├── ecr_eval_runner.py            # ECR evaluation runner
 │   ├── evaluate_ecr_comprehensive.py # Comprehensive ECR evaluation
@@ -202,6 +208,9 @@ python evaluation/evaluate_ecr_comprehensive.py \
 ```
 
 ## Key Components
+
+![System Architecture](images/system_architecture.png)
+*Figure 2: System architecture with clustered components. Light blue cluster (ECR framework): Dialogue history D, knowledge source (DBpedia entities), knowledge fields (Related Entities, KG Triples), prompt constructor (fold D, add fields, merge), generator LLM, and responses. Light green cluster (Added reranking methods): critic, composite reward + argmax, and final responses.*
 
 ### Inference-Time Reranking System
 - **Generator**: Llama2-7B-Chat produces N candidates (N=8 or 16)
