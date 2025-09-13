@@ -1,0 +1,62 @@
+# Large model files (should be trained locally)
+*.pth
+*.pt
+*.bin
+*.safetensors
+*.ckpt
+
+# Large data files (should be generated locally)
+*.jsonl
+*.json
+!src_emo/movie_reviews_processed_train.json
+!src_emo/movie_reviews_processed_valid.json
+!src_emo/item_ids.json
+!src_emo/config.py
+
+# Results and evaluation files (should be generated locally)
+results/
+critic_evaluation_plots/
+critic_pretrained_dual_model/
+artifacts/
+local_models/
+
+# Temporary and cache files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.git
+.mypy_cache
+.pytest_cache
+.hypothesis
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# SLURM output files
+*.out
+*.err
+slurm-*.out
