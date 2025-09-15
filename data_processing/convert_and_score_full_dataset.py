@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Test Llama2 scoring with explicit reasoning for each score (5 samples)
-"""
-
 import json
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -14,7 +9,7 @@ import numpy as np
 import time
 from datetime import datetime, timedelta
 
-# Paths
+#paths
 REAL_DATA_PATH = "../ECRHMAS/data/redial_gen/train_data_processed.jsonl"
 MODEL_NAME = "/data1/s3905993/ECRHMAS/src/models/llama2_chat"
 OUTPUT_FILE = "llama2_scored_full_dataset.jsonl"
@@ -54,7 +49,7 @@ def get_llama2_scores(prompt: str, model, tokenizer) -> Optional[Dict]:
             output = model.generate(
                 **inputs, 
                 max_new_tokens=256,
-                temperature=0.1,  # Low temperature for consistent outputs
+                temperature=0.1,  #lowered temperature for consistent outputs
                 do_sample=True,
                 pad_token_id=tokenizer.eos_token_id
             )
@@ -65,7 +60,7 @@ def get_llama2_scores(prompt: str, model, tokenizer) -> Optional[Dict]:
             return None
         json_str = result[json_start:json_end]
         scores = json.loads(json_str)
-        # Validate scores (set to 0.5 if invalid)
+        #validate scores
         for key in [
             'empathy_score', 'informativeness_score', 'recommendation_score', 'engagement_score', 'overall_score']:
             value = scores.get(key, 0.5)
@@ -76,7 +71,7 @@ def get_llama2_scores(prompt: str, model, tokenizer) -> Optional[Dict]:
         print(f"Error getting scores: {e}")
         return None
 
-# Add BLEU computation
+#adding BLEU computation (not needed)
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
 def compute_bleu(reference: str, hypothesis: str) -> float:
@@ -100,7 +95,7 @@ def process_dataset(input_file: str, output_file: str, max_samples: Optional[int
     success_count = 0
     start_time = time.time()
     total_samples = None
-    # Try to estimate total samples
+    #trying to estimate total samples
     try:
         with open(input_file, 'r', encoding='utf-8') as f:
             total_samples = sum(1 for _ in f)
@@ -112,7 +107,7 @@ def process_dataset(input_file: str, output_file: str, max_samples: Optional[int
         pass
     with open(input_file, 'r', encoding='utf-8') as fin, \
          open(output_file, 'a', encoding='utf-8') as fout:
-        # Skip to start_from
+        #skipping to start_from
         for _ in range(start_from):
             next(fin)
         for line in tqdm(fin, desc="Processing conversations"):
@@ -128,7 +123,7 @@ def process_dataset(input_file: str, output_file: str, max_samples: Optional[int
                 prompt = create_llama2_prompt(context, response)
                 scores = get_llama2_scores(prompt, model, tokenizer)
                 if scores:
-                    # Compute BLEU using real metric if reference is available
+                    #computing BLEU using real metric if reference is available
                     if target:
                         bleu = compute_bleu(target, response)
                     else:
@@ -139,7 +134,7 @@ def process_dataset(input_file: str, output_file: str, max_samples: Optional[int
                     fout.write(json.dumps(item, ensure_ascii=False) + '\n')
                     success_count += 1
                 processed_count += 1
-                # ETA reporting every 10 samples
+                #eta reporting
                 if processed_count % 10 == 0:
                     elapsed = time.time() - start_time
                     rate = processed_count / elapsed if elapsed > 0 else 0
