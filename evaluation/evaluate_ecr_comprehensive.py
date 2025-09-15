@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Comprehensive ECR Evaluation Script
 Evaluates both recommendation accuracy and conversation quality following ECR methodology.
@@ -14,7 +13,7 @@ from peft import PeftModel
 import sys
 import os
 
-# Add parent directory to path to import evaluation modules
+#adding parent directory to path to import evaluation modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from evaluate_rec import RecEvaluator
 from evaluate_conv import ConvEvaluator
@@ -68,7 +67,7 @@ def format_conversation_for_llama(context, response=None):
 
 def generate_recommendation_response(model, tokenizer, context, max_gen_len=150):
     """Generate recommendation response using ECR prompt format."""
-    # Format using ECR prompt
+    #formatting using ECR prompt
     prompt = f"""[HISTORY]
 {format_conversation_for_llama(context)}
 You are a recommender chatting with the user to provide recommendations. Please only recommend the movie [ITEM] and don't mention other movies."""
@@ -111,7 +110,7 @@ def evaluate_recommendation_accuracy(data, model, tokenizer, evaluator, num_samp
         rec_weight = sample.get('rec_weight', [])
         rec_items_true = [item for item, fb in zip(rec_items, rec_weight) if fb == 'like']
         top_k_recs = rec_items[:max(K_list)]
-        # ECR metrics
+        #ECR metrics
         for k in K_list:
             if rec_items and any(item in top_k_recs[:k] for item in rec_items):
                 r_at_k[k] += 1
@@ -121,19 +120,19 @@ def evaluate_recommendation_accuracy(data, model, tokenizer, evaluator, num_samp
             total_r += 1
         if rec_items_true:
             total_rt += 1
-        # CRSDP metrics (Hit@K, MRR@K, NDCG@K)
+        #CRSDP metrics (Hit@K, MRR@K, NDCG@K)
         for k in K_list:
-            # Hit@K: 1 if any ground truth in top-K
+            #Hit@K: 1 if any ground truth in top-K
             if rec_items and any(item in top_k_recs[:k] for item in rec_items):
                 hit_at_k[k] += 1
-            # MRR@K: reciprocal rank of first correct item in top-K
+            #MRR@K: reciprocal rank of first correct item in top-K
             rr = 0.0
             for rank, item in enumerate(top_k_recs[:k]):
                 if item in rec_items:
                     rr = 1.0 / (rank + 1)
                     break
             mrr_at_k[k] += rr
-            # NDCG@K: 1/log2(rank+2) for first correct item in top-K
+            #NDCG@K: 1/log2(rank+2) for first correct item in top-K
             dcg = 0.0
             for rank, item in enumerate(top_k_recs[:k]):
                 if item in rec_items:
@@ -141,8 +140,8 @@ def evaluate_recommendation_accuracy(data, model, tokenizer, evaluator, num_samp
                     break
             ndcg_at_k[k] += dcg
         total_samples += 1
-        auc_scores.append(0.5)  # Placeholder
-    # Calculate averages
+        auc_scores.append(0.5)  #placeholder
+    #calculating averages
     r_at_k = {f"R@{k}": (r_at_k[k] / total_r if total_r > 0 else 0.0) for k in K_list}
     rt_at_k = {f"RT@{k}": (rt_at_k[k] / total_rt if total_rt > 0 else 0.0) for k in K_list}
     auc = sum(auc_scores) / len(auc_scores) if auc_scores else 0.0
@@ -177,7 +176,7 @@ def evaluate_conversation_quality(data, model, tokenizer, evaluator, num_samples
         all_contexts.append(context_tokens)
     evaluator.evaluate(all_preds, all_labels, log=True, context=all_contexts)
     conv_metrics = evaluator.report()
-    # Add CRSDP-style metrics (placeholders for now)
+    #adding CRSDP-style metrics
     conv_metrics['BLEU@1'] = 0.0
     conv_metrics['BLEU@2'] = 0.0
     conv_metrics['Dist@1'] = 0.0
@@ -230,10 +229,10 @@ def main():
     print(f"Output: {args.output_file}")
     print("=" * 50)
     
-    # Load model and tokenizer
+    #loading model and tokenizer
     model, tokenizer = load_lora_model(args.base_model, args.lora_model)
     
-    # Load test data
+    #loading test data
     print(f"Loading test data from {args.test_file}")
     data = []
     with open(args.test_file, 'r', encoding='utf-8') as f:
@@ -241,17 +240,17 @@ def main():
             data.append(json.loads(line.strip()))
     print(f"Loaded {len(data)} samples")
     
-    # Initialize evaluators
+    #initializing evaluators
     rec_evaluator = RecEvaluator(k_list=[1, 10, 50])
     conv_evaluator = ConvEvaluator(tokenizer, None)
     
-    # Evaluate recommendation accuracy (ECR metrics)
+    #evaluating recommendation accuracy (ECR metrics)
     rec_metrics = evaluate_recommendation_accuracy(data, model, tokenizer, rec_evaluator, args.num_samples)
     
-    # Evaluate conversation quality (for CRS/CRSDP baselines)
+    #evaluating conversation quality (for CRS/CRSDP baselines)
     conv_results = evaluate_conversation_quality(data, model, tokenizer, conv_evaluator, args.num_samples)
     
-    # Create subjective evaluation prompts (for manual evaluation)
+    #creating subjective evaluation prompts (for manual evaluation)
     sample_responses = []
     for i, sample in enumerate(data[:5]):  # Use first 5 samples for subjective evaluation
         response = generate_recommendation_response(model, tokenizer, sample['context'])
@@ -261,7 +260,7 @@ def main():
     for metric in ["Emotional Intensity", "Emotional Persuasiveness", "Logic Persuasiveness", "Informativeness", "Lifelikeness"]:
         subjective_prompts[metric] = create_subjective_evaluation_prompt(sample_responses, metric)
     
-    # Compile results
+    #compiling results
     results = {
         "model_info": {
             "base_model": args.base_model,
@@ -274,12 +273,12 @@ def main():
         "sample_responses": sample_responses
     }
     
-    # Save results
+    #saving results
     with open(args.output_file, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)
     
     print(f"\nResults saved to {args.output_file}")
-    # Print summary
+    #printing summary
     print("\n=== Evaluation Summary ===")
     print("Recommendation Metrics (ECR/CRSDP):")
     for key, value in rec_metrics.items():
