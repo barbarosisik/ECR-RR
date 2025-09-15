@@ -326,14 +326,6 @@ This project implements the research described in the complete thesis document (
 - **RQ2**: Does NDCG term preserve recommendation alignment? ✅ Yes  
 - **RQ3**: How do design choices affect reranking gains? ✅ Analyzed
 
-## References
-
-- **ReDial Dataset**: Conversational Recommendation Dataset
-- **Llama2**: Meta's Large Language Model
-- **RoBERTa**: Robust BERT for Classification
-- **ECR Framework**: Empathetic Conversational Recommender
-- **NDCG**: Normalized Discounted Cumulative Gain
-
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
