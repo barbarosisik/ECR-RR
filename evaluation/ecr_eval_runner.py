@@ -47,7 +47,7 @@ def eval_subjective(critic: EnhancedCriticAgentWithTrainedModel, samples: List[D
 
 
 def eval_recommendation(samples: List[Dict], k: int = 10, max_n: int = 1000) -> float:
-    # expects fields: rec (recommended candidates), entity (ground_truth relevant) or similar
+    #expects fields: rec (recommended candidates), entity (ground_truth relevant) or similar
     total = 0.0
     n = 0
     for item in samples[:max_n]:
