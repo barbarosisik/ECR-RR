@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 LLM-Based Subjective Evaluation for ECR System
 Replicates the methodology from the ECR paper (arXiv:2409.10527v1)
@@ -12,7 +11,7 @@ import argparse
 from typing import List, Dict, Any
 import os
 
-# Optional OpenAI import (only if using API)
+#optional OpenAI import (only if using API)
 try:
     import openai  # type: ignore
 except Exception:  # pragma: no cover
@@ -49,12 +48,12 @@ class LLMSubjectiveEvaluator:
         if api_key and openai is not None:
             openai.api_key = api_key
         
-        # Initialize local model if specified
+        #initializing local model if specified
         self.tokenizer = None
         self.model = None
         if local_model:
             load_kwargs = {"trust_remote_code": True}
-            # Ensure a valid current CUDA device is selected when GPUs are present
+            #ensuring a valid current CUDA device is selected when GPUs are present (IF NOT NECESSARY, PLEASE REMOVE WHILE REPRODUCING)
             try:
                 if not self.force_cpu and torch.cuda.is_available():
                     torch.cuda.set_device(0)
@@ -72,14 +71,14 @@ class LLMSubjectiveEvaluator:
                     load_kwargs["torch_dtype"] = torch.float32
             else:
                 load_kwargs["device_map"] = "auto"
-                # Prefer BitsAndBytesConfig over deprecated load_in_8bit flag
+                #preferring BitsAndBytesConfig over deprecated load_in_8bit flag
                 if load_in_8bit and BitsAndBytesConfig is not None:
                     load_kwargs["quantization_config"] = BitsAndBytesConfig(
                         load_in_8bit=True,
                         llm_int8_enable_fp32_cpu_offload=True,
                         bnb_8bit_compute_dtype=(torch.float16 if self.dtype in ("fp16", "bf16") else torch.float32),
                     )
-                    # keep dtype to help scheduler choose kernels
+                    #keep dtype to help scheduler choose kernels
                     load_kwargs["torch_dtype"] = torch.float16 if torch.cuda.is_available() else torch.float32
                 else:
                     if self.dtype == "bf16":
@@ -88,13 +87,12 @@ class LLMSubjectiveEvaluator:
                         load_kwargs["torch_dtype"] = torch.float16
                     else:
                         load_kwargs["torch_dtype"] = torch.float32
-                # Enable low CPU mem usage and multi-GPU sharding with CPU offload
                 load_kwargs["low_cpu_mem_usage"] = True
                 try:
                     if torch.cuda.is_available():
                         num_gpus = torch.cuda.device_count()
                         if num_gpus and num_gpus > 0:
-                            # accelerate expects integer device indices (0,1,...) and 'cpu'
+                            #accelerate expects integer device indices (0,1,...) and 'cpu'
                             max_memory = {i: "8GiB" for i in range(num_gpus)}
                             max_memory["cpu"] = "160GiB"
                             load_kwargs["max_memory"] = max_memory
@@ -111,11 +109,11 @@ class LLMSubjectiveEvaluator:
             try:
                 self.model = AutoModelForCausalLM.from_pretrained(local_model, **load_kwargs)
             except torch.cuda.OutOfMemoryError:
-                # Fallback: reload entirely on CPU
+                #fallback: reload entirely on CPU
                 load_kwargs["device_map"] = "cpu"
                 load_kwargs["torch_dtype"] = torch.bfloat16 if self.dtype == "bf16" else torch.float32
                 self.model = AutoModelForCausalLM.from_pretrained(local_model, **load_kwargs)
-            # Ensure model dtype alignment if CPU bf16 requested
+            #ensuring model dtype alignment if CPU bf16 requested
             if self.force_cpu and self.dtype == "bf16":
                 try:
                     self.model = self.model.to(dtype=torch.bfloat16)
@@ -191,7 +189,7 @@ class LLMSubjectiveEvaluator:
             return 5.0
         prompt = self.evaluation_prompts[dimension].format(response=response)
         try:
-            # Use chat template if available (for chat-tuned models like Llama-2-Chat)
+            #use chat template if available (for chat-tuned models like Llama-2-Chat)
             if hasattr(self.tokenizer, "apply_chat_template"):
                 messages = [
                     {"role": "system", "content": "You are an expert evaluator of conversational AI responses. Provide only the numerical score (0-9) as your response."},
@@ -206,12 +204,12 @@ class LLMSubjectiveEvaluator:
             else:
                 inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
             inputs = {k: v.to(self.model.device) for k, v in inputs.items()}
-            # Ensure input dtype matches model dtype
+            #ensuring input dtype matches model dtype
             if hasattr(self.model, 'dtype'):
                 inputs = {k: v.to(dtype=self.model.dtype) for k, v in inputs.items()}
             input_len = inputs["input_ids"].shape[1]
             with torch.no_grad():
-                # Match autocast with model dtype to avoid bf16/half mismatches
+                #matching autocast with model dtype to avoid bf16/half mismatches
                 try:
                     first_param = next(self.model.parameters())
                     if first_param.is_cuda and first_param.dtype == torch.bfloat16:
@@ -256,7 +254,7 @@ class LLMSubjectiveEvaluator:
             if m:
                 score = float(m.group(1))
                 return max(0, min(9, score))
-            # If the model produced nothing numeric, return neutral 5.0
+            #if the model produced nothing numeric, return neutral 5.0
                 return 5.0
         except Exception as e:
             print(f"Error scoring with local model: {e}")
