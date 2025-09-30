@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Simple evaluation script for the RL-enhanced Llama2 model.
-"""
-
 import os
 import json
 import torch
@@ -13,7 +8,7 @@ from tqdm import tqdm
 import nltk
 from nltk.translate.bleu_score import sentence_bleu, SmoothingFunction
 
-# Download required NLTK data
+#downloading required NLTK data
 try:
     nltk.data.find('tokenizers/punkt')
 except LookupError:
@@ -128,10 +123,10 @@ def evaluate_model(model, tokenizer, test_data, max_gen_len=150):
         context = sample['context']
         reference = sample['resp']
         
-        # Format conversation
+        #formatting conversation
         formatted_input = format_conversation_for_llama(context)
         
-        # Tokenize input
+        #tokenize input
         inputs = tokenizer(
             formatted_input,
             return_tensors="pt",
@@ -140,7 +135,7 @@ def evaluate_model(model, tokenizer, test_data, max_gen_len=150):
             max_length=512
         ).to(model.device)
         
-        # Generate response
+        #generating response
         with torch.no_grad():
             generated_ids = model.generate(
                 input_ids=inputs['input_ids'],
@@ -153,16 +148,16 @@ def evaluate_model(model, tokenizer, test_data, max_gen_len=150):
                 eos_token_id=tokenizer.eos_token_id
             )
         
-        # Extract generated response
+        #extracting generated response
         response_ids = generated_ids[0][inputs['input_ids'].shape[1]:]
         generated_response = tokenizer.decode(response_ids, skip_special_tokens=True).strip()
         
-        # Calculate metrics
+        #calculating metrics
         bleu = compute_bleu_score(generated_response, reference)
         distinct_1 = compute_distinct_score(generated_response, 1)
         distinct_2 = compute_distinct_score(generated_response, 2)
         
-        # Store results
+        #storing results
         result = {
             'sample_id': i,
             'context': context,
@@ -180,7 +175,7 @@ def evaluate_model(model, tokenizer, test_data, max_gen_len=150):
         distinct_2_scores.append(distinct_2)
         response_lengths.append(len(generated_response.split()))
     
-    # Calculate summary statistics
+    #calculating summary statistics
     summary = {
         'num_samples': len(test_data),
         'bleu_1_mean': sum(bleu_scores) / len(bleu_scores),
@@ -198,16 +193,16 @@ def evaluate_model(model, tokenizer, test_data, max_gen_len=150):
 def main():
     args = parse_args()
     
-    # Load model
+    #loading model
     model, tokenizer = load_rl_model(args.base_model, args.rl_model)
     
-    # Load test data
+    #loading test data
     test_data = load_test_data(args.test_file, args.num_samples)
     
-    # Evaluate model
+    #evaluate model
     results, summary = evaluate_model(model, tokenizer, test_data, args.max_gen_len)
     
-    # Save results
+    #saving results
     os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
     output_data = {
         'summary': summary,
@@ -217,7 +212,7 @@ def main():
     with open(args.output_file, 'w', encoding='utf-8') as f:
         json.dump(output_data, f, indent=2, ensure_ascii=False)
     
-    # Print summary
+    #printing summary
     print("\n" + "="*60)
     print("EVALUATION RESULTS")
     print("="*60)
@@ -229,7 +224,7 @@ def main():
     print("="*60)
     print(f"Results saved to {args.output_file}")
     
-    # Show sample outputs
+    #showing sample outputs
     print("\nSAMPLE OUTPUTS:")
     print("-" * 50)
     for i, result in enumerate(results[:3]):
