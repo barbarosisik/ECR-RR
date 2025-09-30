@@ -1,8 +1,3 @@
-#!/usr/bin/env python3
-"""
-Simple evaluation script to test the trained enhanced ECR model.
-"""
-
 import torch
 import json
 import logging
@@ -19,21 +14,21 @@ def test_trained_model(checkpoint_path: str):
     print("=" * 50)
     
     try:
-        # Load trained model
+        #loading trained model
         print(f"Loading checkpoint from: {checkpoint_path}")
         checkpoint = torch.load(checkpoint_path, map_location='cpu')
         
-        # Initialize models
+        #initializing models
         policy = ECRPolicy()
         critic = EnhancedCriticAgent()
         
-        # Load trained weights
+        #loading trained weights
         policy.load_state_dict(checkpoint['policy_state_dict'])
         critic.load_state_dict(checkpoint['critic_state_dict'])
         
         print("✅ Models loaded successfully!")
         
-        # Test with sample data
+        #testing with sample data
         test_samples = [
             {
                 "context": "User: I love action movies with great special effects. Recommender: What about superhero movies?",
@@ -55,11 +50,11 @@ def test_trained_model(checkpoint_path: str):
             print(f"Context: {sample['context']}")
             print(f"User Preference: {sample['user_preference']}")
             
-            # Generate response
+            #generating response
             response = policy.generate_response(sample['context'])
             print(f"Generated Response: {response}")
             
-            # Get recommendations
+            #getting recommendations
             recommended_items = policy.get_recommendations(
                 sample['context'], 
                 response, 
@@ -67,7 +62,7 @@ def test_trained_model(checkpoint_path: str):
             )
             print(f"Recommended Items: {recommended_items}")
             
-            # Calculate comprehensive reward
+            #calculating comprehensive reward
             total_reward, detailed_scores = critic.get_comprehensive_reward(
                 context=sample['context'],
                 response=response,
@@ -80,15 +75,15 @@ def test_trained_model(checkpoint_path: str):
             for dimension, score in detailed_scores.items():
                 print(f"  {dimension}: {score:.3f}")
             
-            # Calculate NDCG
+            #calculating NDCG
             ndcg_score = critic.calculate_ndcg(recommended_items, sample['user_preference'], k=4)
             print(f"NDCG@4: {ndcg_score:.3f}")
         
-        print("\n🎉 Model evaluation completed!")
+        print("\nModel evaluation completed!")
         return True
         
     except Exception as e:
-        print(f"❌ Error testing model: {e}")
+        print(f"Error testing model: {e}")
         return False
 
 def main():
@@ -99,13 +94,13 @@ def main():
     
     args = parser.parse_args()
     
-    # Test the trained model
+    #testing the trained model
     success = test_trained_model(args.checkpoint_path)
     
     if success:
-        print("\n✅ Model testing successful!")
+        print("\nModel testing successful!")
     else:
-        print("\n❌ Model testing failed!")
+        print("\nModel testing failed!")
 
 if __name__ == "__main__":
     main() 
