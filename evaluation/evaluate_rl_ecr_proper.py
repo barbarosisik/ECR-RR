@@ -1,11 +1,3 @@
-#!/usr/bin/env python3
-"""
-RL-Enhanced ECR Proper Evaluation Script
-Evaluates the RL-enhanced model using the same methodology as the ECR paper:
-1. Recommendation metrics: AUC, RT@K, R@K
-2. Subjective LLM-based scoring: Emotional Intensity, Emotional Persuasiveness, Logic Persuasiveness, Informativeness, Lifelikeness
-"""
-
 import json
 import torch
 import numpy as np
@@ -22,7 +14,7 @@ def load_rl_model_and_tokenizer(base_model_path, rl_model_path):
     """Load RL-enhanced model and tokenizer"""
     from peft import PeftModel, PeftConfig
     
-    # Load base model and tokenizer
+    #loading base model and tokenizer
     base_model = AutoModelForCausalLM.from_pretrained(
         base_model_path,
         torch_dtype=torch.float16,
@@ -31,11 +23,11 @@ def load_rl_model_and_tokenizer(base_model_path, rl_model_path):
     )
     tokenizer = AutoTokenizer.from_pretrained(base_model_path)
     
-    # Load RL adapter
+    #loading RL adapter
     model = PeftModel.from_pretrained(base_model, rl_model_path)
     model.eval()
     
-    # Set padding side for generation
+    #setting padding side for generation
     tokenizer.padding_side = "left"
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
@@ -46,9 +38,9 @@ def format_conversation_for_llama(context: List[str], response: str = None) -> s
     """Format conversation for Llama2 chat model"""
     formatted = ""
     for i, turn in enumerate(context):
-        if i % 2 == 0:  # User turn
+        if i % 2 == 0:  #user turn
             formatted += f"[INST] {turn} [/INST]"
-        else:  # System turn
+        else:  #system turn
             formatted += f" {turn}"
     
     if response:
@@ -60,7 +52,7 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
     """Evaluate recommendation accuracy using AUC, RT@K, R@K metrics"""
     print("Evaluating recommendation accuracy...")
     
-    # Load movie mapping
+    #loading movie mapping
     movie_mapping = load_movie_mapping()
     print(f"Loaded movie mapping with {len(movie_mapping)} movies")
     
@@ -75,19 +67,19 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
     }
     
     for sample in tqdm(test_data[:num_samples], desc="Evaluating recommendations"):
-        # Extract context and target items
+        #extracting context and target items
         context = sample['context']
-        target_items = sample.get('rec', [])  # Target recommended items
-        target_weights = sample.get('rec_weight_w', [])  # Weights for target items
+        target_items = sample.get('rec', [])  #target recommended items
+        target_weights = sample.get('rec_weight_w', [])  #weights for target items
         
         if not target_items:
             continue
             
-        # Generate response
+        #generating response
         formatted_context = format_conversation_for_llama(context)
         inputs = tokenizer(formatted_context, return_tensors="pt", truncation=True, max_length=512)
         
-        # Move inputs to the same device as the model
+        #moving inputs to the same device as the model
         device = next(model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         
@@ -103,7 +95,7 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
         
         generated_response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
         
-        # Check for <movie> placeholders in the generated response
+        #checking for <movie> placeholders in the generated response
         movie_placeholders = generated_response.count('<movie>')
         
         if movie_placeholders > 0:
@@ -114,12 +106,11 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
             
             # If we have target items and placeholders, we can evaluate based on placeholder count
             if target_items and movie_placeholders > 0:
-                # Calculate metrics based on placeholder presence
+                #calculating metrics based on placeholder presence
                 # We consider it a "hit" if the model generated the right number of placeholders
                 expected_placeholders = len(target_items)
                 placeholder_accuracy = min(movie_placeholders, expected_placeholders) / expected_placeholders if expected_placeholders > 0 else 0
                 
-                # For this evaluation, we'll use placeholder accuracy as our main metric
                 auc = placeholder_accuracy
                 rt_1 = rt_10 = rt_50 = placeholder_accuracy
                 r_1 = r_10 = r_50 = placeholder_accuracy
@@ -132,16 +123,15 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
                 results['r_10_scores'].append(r_10)
                 results['r_50_scores'].append(r_50)
         else:
-            # No placeholders, try to extract actual movie names
             recommended_items = extract_movie_mentions(generated_response, movie_mapping)
             
-            # Calculate metrics
+            #calculating metrics
             if target_items and recommended_items:
-                # AUC calculation (simplified)
+                #AUC calculation
                 auc = calculate_auc(target_items, target_weights, recommended_items)
                 results['auc_scores'].append(auc)
                 
-                # RT@K and R@K calculations
+                #RT@K and R@K calculations
                 rt_1 = calculate_rt_k(target_items, target_weights, recommended_items, k=1)
                 rt_10 = calculate_rt_k(target_items, target_weights, recommended_items, k=10)
                 rt_50 = calculate_rt_k(target_items, target_weights, recommended_items, k=50)
@@ -157,7 +147,7 @@ def evaluate_recommendation_accuracy(model, tokenizer, test_data, num_samples=10
                 results['r_10_scores'].append(r_10)
                 results['r_50_scores'].append(r_50)
     
-    # Calculate averages
+    #calculating averages
     metrics = {}
     for key, scores in results.items():
         if scores:
@@ -171,13 +161,13 @@ def load_movie_mapping():
     """Load movie ID to name mapping"""
     import json
     try:
-        # Load movie IDs and names
+        #loading movie IDs and names
         with open('src_emo/data/redial/movie_ids.json', 'r') as f:
             movie_ids = json.load(f)
         with open('src_emo/data/redial/movie_name.json', 'r') as f:
             movie_names = json.load(f)
         
-        # Create mapping from name to ID (for extraction)
+        #creating mapping from name to ID (for extraction)
         name_to_id = {}
         for i, movie_name in enumerate(movie_names):
             if i < len(movie_ids):
@@ -196,13 +186,13 @@ def extract_movie_mentions(text: str, movie_mapping: dict) -> List[int]:
     if not movie_mapping:
         return []
     
-    # Convert text to lowercase for matching
+    #converting text to lowercase for matching
     text_lower = text.lower()
     
-    # Try multiple patterns for movie name extraction
+    #trying multiple patterns for movie name extraction
     movie_ids = []
     
-    # Pattern 1: Movie name with year in parentheses - FIXED PATTERN
+    #Pattern 1: Movie name with year in parentheses
     pattern1 = r'([A-Z][a-z\s&]+(?:\s+[A-Z][a-z\s&]+)*)\s*\((\d{4})\)'
     matches1 = re.findall(pattern1, text)
     for match in matches1:
@@ -212,7 +202,7 @@ def extract_movie_mentions(text: str, movie_mapping: dict) -> List[int]:
         if movie_name_with_year in movie_mapping:
             movie_ids.append(movie_mapping[movie_name_with_year])
     
-    # Pattern 2: Movie name followed by year - FIXED PATTERN
+    #Pattern 2: Movie name followed by year
     pattern2 = r'([A-Z][a-z\s&]+(?:\s+[A-Z][a-z\s&]+)*)\s+(\d{4})'
     matches2 = re.findall(pattern2, text)
     for match in matches2:
@@ -222,7 +212,7 @@ def extract_movie_mentions(text: str, movie_mapping: dict) -> List[int]:
         if movie_name_with_year in movie_mapping:
             movie_ids.append(movie_mapping[movie_name_with_year])
     
-    # Pattern 3: Just movie name (capitalized) - FIXED PATTERN
+    #Pattern 3: Just movie name
     pattern3 = r'([A-Z][a-z\s&]+(?:\s+[A-Z][a-z\s&]+)*)'
     matches3 = re.findall(pattern3, text)
     for match in matches3:
@@ -230,7 +220,7 @@ def extract_movie_mentions(text: str, movie_mapping: dict) -> List[int]:
         if movie_name.lower() in movie_mapping:
             movie_ids.append(movie_mapping[movie_name.lower()])
     
-    # Remove duplicates while preserving order
+    #removing duplicates while preserving order
     seen = set()
     unique_movie_ids = []
     for movie_id in movie_ids:
@@ -242,22 +232,22 @@ def extract_movie_mentions(text: str, movie_mapping: dict) -> List[int]:
 
 def calculate_auc(target_items, target_weights, recommended_items):
     """Calculate AUC for recommendation accuracy"""
-    # Simplified AUC calculation
+    #simplified AUC calculation
     if not target_items or not recommended_items:
         return 0.5
     
-    # Convert weights to float
+    #converting weights to float
     try:
         weights_float = [float(weight) for weight in target_weights]
     except (ValueError, TypeError):
-        # If conversion fails, use equal weights
+        #if conversion fails, use equal weights
         weights_float = [1.0] * len(target_items)
     
-    # Create binary labels and scores
+    #creating binary labels and scores
     all_items = list(set(target_items + recommended_items))
     labels = [1 if item in target_items else 0 for item in all_items]
     
-    # Create scores with proper indexing
+    #creating scores with proper indexing
     scores = []
     for item in all_items:
         if item in target_items:
@@ -265,7 +255,7 @@ def calculate_auc(target_items, target_weights, recommended_items):
             if idx < len(weights_float):
                 scores.append(weights_float[idx])
             else:
-                scores.append(1.0)  # Default weight if index out of range
+                scores.append(1.0)  #default weight if index out of range
         else:
             scores.append(0)
     
@@ -282,21 +272,21 @@ def calculate_rt_k(target_items, target_weights, recommended_items, k):
     if not target_items or not recommended_items:
         return 0.0
     
-    # Get top-k recommended items
+    #getting top-k recommended items
     top_k_items = recommended_items[:k]
     
-    # Convert weights to float and count items with positive weights
+    #converting weights to float and count items with positive weights
     try:
         weights_float = [float(weight) for weight in target_weights]
         positive_items = [item for item, weight in zip(target_items, weights_float) if weight > 0]
     except (ValueError, TypeError):
-        # If conversion fails, treat all items as positive
+        #if conversion fails, treat all items as positive
         positive_items = target_items
     
     if not positive_items:
         return 0.0
     
-    # Count how many positive items are in top-k
+    #counting how many positive items are in top-k
     hits = sum(1 for item in positive_items if item in top_k_items)
     return hits / len(positive_items)
 
@@ -305,10 +295,10 @@ def calculate_r_k(target_items, recommended_items, k):
     if not target_items or not recommended_items:
         return 0.0
     
-    # Get top-k recommended items
+    #getting top-k recommended items
     top_k_items = recommended_items[:k]
     
-    # Count how many target items are in top-k
+    #counting how many target items are in top-k
     hits = sum(1 for item in target_items if item in top_k_items)
     return hits / len(target_items)
 
@@ -357,11 +347,11 @@ def evaluate_subjective_metrics(model, tokenizer, test_data, num_samples=50):
         context = sample['context']
         reference = sample['resp']
         
-        # Generate response
+        #generating response
         formatted_context = format_conversation_for_llama(context)
         inputs = tokenizer(formatted_context, return_tensors="pt", truncation=True, max_length=512)
         
-        # Move inputs to the same device as the model
+        #moving inputs to the same device as the model
         device = next(model.parameters()).device
         inputs = {k: v.to(device) for k, v in inputs.items()}
         
@@ -377,16 +367,16 @@ def evaluate_subjective_metrics(model, tokenizer, test_data, num_samples=50):
         
         generated_response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
         
-        # For each metric, create evaluation prompt and get score
+        #for each metric, creating evaluation prompt and get score
         for metric in metrics:
             prompt = create_subjective_evaluation_prompt(context, generated_response, metric)
             
-            # Use the same model to score (simplified approach)
+            # Use the same model to score
             # In practice, use GPT-4-turbo
             score = evaluate_with_local_llm(prompt, model, tokenizer)
             results[metric].append(score)
     
-    # Calculate averages
+    #calculating averages
     final_metrics = {}
     for metric, scores in results.items():
         if scores:
@@ -403,7 +393,7 @@ def evaluate_with_local_llm(prompt: str, model, tokenizer) -> float:
     
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=1024)
     
-    # Move inputs to the same device as the model
+    #moving inputs to the same device as the model
     device = next(model.parameters()).device
     inputs = {k: v.to(device) for k, v in inputs.items()}
     
@@ -419,14 +409,14 @@ def evaluate_with_local_llm(prompt: str, model, tokenizer) -> float:
     
     response = tokenizer.decode(outputs[0][inputs['input_ids'].shape[1]:], skip_special_tokens=True)
     
-    # Extract score from response (simplified)
+    #extracting score from response (simplified)
     import re
     score_match = re.search(r'(\d+(?:\.\d+)?)', response)
     if score_match:
         score = float(score_match.group(1))
-        return min(max(score, 1), 10)  # Clamp to 1-10 range
+        return min(max(score, 1), 10)
     else:
-        return 5.0  # Default score
+        return 5.0  #default score
 
 def main():
     parser = argparse.ArgumentParser(description="Evaluate RL-enhanced ECR model using proper metrics")
@@ -438,7 +428,7 @@ def main():
     
     args = parser.parse_args()
     
-    # Load test data
+    #loading test data
     print(f"Loading test data from {args.test_file}")
     test_data = []
     with open(args.test_file, 'r') as f:
@@ -447,18 +437,18 @@ def main():
     
     print(f"Loaded {len(test_data)} test samples")
     
-    # Load model
+    #loading model
     print(f"Loading base model: {args.base_model}")
     print(f"Loading RL model: {args.rl_model}")
     model, tokenizer = load_rl_model_and_tokenizer(args.base_model, args.rl_model)
     
-    # Evaluate recommendation accuracy
+    #evaluating recommendation accuracy
     rec_metrics = evaluate_recommendation_accuracy(model, tokenizer, test_data, args.num_samples)
     
-    # Evaluate subjective metrics
+    #evaluating subjective metrics
     subj_metrics = evaluate_subjective_metrics(model, tokenizer, test_data, min(args.num_samples, 50))
     
-    # Combine results
+    #combining results
     results = {
         'recommendation_metrics': rec_metrics,
         'subjective_metrics': subj_metrics,
@@ -469,12 +459,12 @@ def main():
         }
     }
     
-    # Save results
+    #saving results
     os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
     with open(args.output_file, 'w') as f:
         json.dump(results, f, indent=2)
     
-    # Print summary
+    #printing summary
     print("\n" + "="*60)
     print("RL-ENHANCED ECR EVALUATION RESULTS")
     print("="*60)
